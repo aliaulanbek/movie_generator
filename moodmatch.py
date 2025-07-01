@@ -20,12 +20,19 @@ DB_NAME = "movie_recommendations.db"
 # write the sql command for the dtabase 
 
 def get_movies():
-  tmdb_url = "https://api.themoviedb.org/3/discover/movie?include_adult=false&include_video=false&language=en-US&page=1&sort_by=popularity.desc"
-  params = {
-    "api_key" : movie_api
-  }
-  response = requests.get(tmdb_url, params)
-  return response.json()['results']
+  max_pages = 5
+  all_movies = []
+
+  for i in range(1, 1 + max_pages):
+    # tmdb_url = f"https://api.themoviedb.org/3/discover/movie?include_adult=false&include_video=false&language=en-US&page={i}&sort_by=popularity.desc"
+    tmdb_url = f"https://api.themoviedb.org/3/discover/movie?include_adult=false&include_video=false&language=en-US&page={i}&sort_by=vote_average.desc&without_genres=99,10755&vote_count.gte=200"
+    params = {
+      "api_key" : movie_api
+    }
+    response = requests.get(tmdb_url, params)
+    all_movies.extend(response.json()['results'])
+
+  return all_movies
 
 def setup_database(movies):
 
@@ -63,7 +70,7 @@ def ai_rec(mood, audience, db):
     api_key=my_api_key,
   )
 
-  prompt = f"User is feeling this {mood} and they are watching a movie with {audience}. Based on the following comma-separated list of movies (title, overview, rating): {db}, please print the title of the movie and its full overview in the following format: Title: Overview: " 
+  prompt = f"User is feeling this {mood} and they are watching a movie with {audience}. Based on the following comma-separated list of movies (title, overview, rating): {db}, please print the title of the movie and its full overview in the following format (without asterisks): Title: Overview: " 
   # Specify the model to use and the messages to send
   response = client.models.generate_content(
     model="gemini-2.5-flash",
