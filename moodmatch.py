@@ -5,6 +5,7 @@ from google import genai
 from google.genai import types
 
 # AIzaSyDJbKD2e8V8MCyfLyM7xfJdSowXTeTwxMk
+# 19278b5202f275d1776a68267c25054f
 
 DB_NAME = "movie_recommendations.db"
 # todo: 
