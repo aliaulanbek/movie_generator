@@ -1,5 +1,10 @@
 import requests
 import sqlite3
+import os 
+from google import genai
+from google.genai import types
+
+# AIzaSyDJbKD2e8V8MCyfLyM7xfJdSowXTeTwxMk
 
 DB_NAME = "movie_recommendations.db"
 # todo: 
@@ -23,6 +28,31 @@ def main():
   print("Welcome to the Mood Match Movie Recommender!")
   mood = input("Enter your current mood: ").strip()
   audience = input("Who are you watching with? (e.g., alone, partner, friends, family): ").strip()
+
+  ai_rec(mood, audience)
+
+def ai_rec(mood, audience):
+  # Set environment variables
+  my_api_key = os.getenv('GENAI_KEY')
+
+  genai.api_key = my_api_key
+
+  # WRITE YOUR CODE HERE
+
+  # Create an genAI client using the key from our environment variable
+  client = genai.Client(
+      api_key=my_api_key,
+  )
+  # Specify the model to use and the messages to send
+  response = client.models.generate_content(
+      model="gemini-2.5-flash",
+      config=types.GenerateContentConfig(
+        system_instruction= f"User is Felling this {mood} and they are watching a movie with {audience}."
+      ),
+      contents="What are the advantages of pair programming?",
+  )
+
+  print(response.text)
 
 if __name__ == "__main__":
   main()
