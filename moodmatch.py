@@ -2,6 +2,9 @@ import requests
 import sqlite3
 
 DB_NAME = "movie_recommendations.db"
+# todo: 
+# figure out what columns to go in the table
+# write the sql command for the dtabase 
 
 # day 4: database slides
 def setup_database():
@@ -9,7 +12,7 @@ def setup_database():
   c = conn.cursor()
 
 # create table with data we want
-  c.execute('sql comand')
+  c.execute('sql command')
 
   conn.commit()
   conn.close()
