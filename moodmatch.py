@@ -4,6 +4,7 @@ import os
 from google import genai
 from google.genai import types
 import sqlalchemy as db
+from sqlalchemy.types import VARCHAR, Float
 import pandas as pd
 
 
@@ -31,46 +32,59 @@ def setup_database(movies):
   df = pd.DataFrame(movies)
   # print(df)
 
-  df = df[['original_title', 'overview', 'release_date', 'vote_average']]
+  df = df[['original_title', 'overview', 'vote_average']]
   engine = db.create_engine('sqlite:///movie_database.db')
 
-  df.to_sql('movies', con=engine, if_exists='replace', index=False)
+  df.to_sql(
+    'movies',
+    con=engine,
+    if_exists='replace',
+    index=False,
+    dtype={
+        'original_title': VARCHAR(100),
+        'overview': VARCHAR(1000),  # limit overview length to 1000 chars
+        'vote_average': db.Float
+    }
+  )
 
   with engine.connect() as connection:
     query_result = connection.execute(db.text("SELECT * FROM movies;")).fetchall()
-    print(pd.DataFrame(query_result))
+    df_result = pd.DataFrame(query_result)
+    pd.set_option('display.max_colwidth', None) 
 
-def ai_rec(mood, audience):
+    csv_text = df_result.to_csv(index=False)
+    return csv_text
+
+def ai_rec(mood, audience, db):
   genai.api_key = my_api_key
-
-  # WRITE YOUR CODE HERE
 
   # Create an genAI client using the key from our environment variable
   client = genai.Client(
-      api_key=my_api_key,
-  )
-  # Specify the model to use and the messages to send
-  response = client.models.generate_content(
-      model="gemini-2.5-flash",
-      config=types.GenerateContentConfig(
-        system_instruction= f"User is Felling this {mood} and they are watching a movie with {audience}."
-      ),
-      contents="What are the advantages of pair programming?",
+    api_key=my_api_key,
   )
 
+  prompt = f"User is feeling this {mood} and they are watching a movie with {audience}. Based on the following comma-separated list of movies (title, overview, rating): {db}, please print the title of the movie and its full overview in the following format: Title: Overview: " 
+  # Specify the model to use and the messages to send
+  response = client.models.generate_content(
+    model="gemini-2.5-flash",
+    config=types.GenerateContentConfig(
+      system_instruction = prompt
+    ),
+    contents="Provide the top 3 movies that align with the user's mood and audience",
+  )
   print(response.text)
 
 def main():
-  # setup_database()
 
   print("Welcome to the Mood Match Movie Recommender!")
   mood = input("Enter your current mood: ").strip()
   audience = input("Who are you watching with? (e.g., alone, partner, friends, family): ").strip()
   popular_movies = get_movies()
   # print(popular_movies)
-  setup_database(popular_movies)
+  db = setup_database(popular_movies)
+  # print(db)
 
-  # ai_rec(mood, audience)
+  ai_rec(mood, audience, db)
 
 
 if __name__ == "__main__":
