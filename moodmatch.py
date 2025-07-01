@@ -3,39 +3,44 @@ import sqlite3
 import os 
 from google import genai
 from google.genai import types
+import sqlalchemy as db
+import pandas as pd
+
 
 # AIzaSyDJbKD2e8V8MCyfLyM7xfJdSowXTeTwxMk
 # 19278b5202f275d1776a68267c25054f
+
+my_api_key = os.getenv('GENAI_KEY')
+movie_api = os.getenv('MOVIE_REC')
 
 DB_NAME = "movie_recommendations.db"
 # todo: 
 # figure out what columns to go in the table
 # write the sql command for the dtabase 
 
-# day 4: database slides
-def setup_database():
-  conn = sqlite3.connect(DB_NAME)
-  c = conn.cursor()
+def get_movies():
+  tmdb_url = "https://api.themoviedb.org/3/discover/movie?include_adult=false&include_video=false&language=en-US&page=1&sort_by=popularity.desc"
+  params = {
+    "api_key" : movie_api
+  }
+  response = requests.get(tmdb_url, params)
+  return response.json()['results']
 
-# create table with data we want
-  c.execute('sql command')
+def setup_database(movies):
 
-  conn.commit()
-  conn.close()
+  df = pd.DataFrame(movies)
+  # print(df)
 
-def main():
-  setup_database()
+  df = df[['original_title', 'overview', 'release_date', 'vote_average']]
+  engine = db.create_engine('sqlite:///movie_database.db')
 
-  print("Welcome to the Mood Match Movie Recommender!")
-  mood = input("Enter your current mood: ").strip()
-  audience = input("Who are you watching with? (e.g., alone, partner, friends, family): ").strip()
+  df.to_sql('movies', con=engine, if_exists='replace', index=False)
 
-  ai_rec(mood, audience)
+  with engine.connect() as connection:
+    query_result = connection.execute(db.text("SELECT * FROM movies;")).fetchall()
+    print(pd.DataFrame(query_result))
 
 def ai_rec(mood, audience):
-  # Set environment variables
-  my_api_key = os.getenv('GENAI_KEY')
-
   genai.api_key = my_api_key
 
   # WRITE YOUR CODE HERE
@@ -54,6 +59,19 @@ def ai_rec(mood, audience):
   )
 
   print(response.text)
+
+def main():
+  # setup_database()
+
+  print("Welcome to the Mood Match Movie Recommender!")
+  mood = input("Enter your current mood: ").strip()
+  audience = input("Who are you watching with? (e.g., alone, partner, friends, family): ").strip()
+  popular_movies = get_movies()
+  # print(popular_movies)
+  setup_database(popular_movies)
+
+  # ai_rec(mood, audience)
+
 
 if __name__ == "__main__":
   main()
