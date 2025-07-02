@@ -7,17 +7,10 @@ import sqlalchemy as db
 from sqlalchemy.types import VARCHAR, Float
 import pandas as pd
 
-
-# AIzaSyDJbKD2e8V8MCyfLyM7xfJdSowXTeTwxMk
-# 19278b5202f275d1776a68267c25054f
-
 my_api_key = os.getenv('GENAI_KEY')
 movie_api = os.getenv('MOVIE_REC')
 
 DB_NAME = "movie_recommendations.db"
-# todo: 
-# figure out what columns to go in the table
-# write the sql command for the dtabase 
 
 def get_movies():
   max_pages = 5
@@ -37,8 +30,6 @@ def get_movies():
 def setup_database(movies):
 
   df = pd.DataFrame(movies)
-  # print(df)
-
   df = df[['original_title', 'overview', 'vote_average']]
   engine = db.create_engine('sqlite:///movie_database.db')
 
@@ -49,7 +40,7 @@ def setup_database(movies):
     index=False,
     dtype={
         'original_title': VARCHAR(100),
-        'overview': VARCHAR(1000),  # limit overview length to 1000 chars
+        'overview': VARCHAR(1000),   chars
         'vote_average': db.Float
     }
   )
@@ -82,17 +73,20 @@ def ai_rec(mood, audience, db):
   print(response.text)
 
 def main():
-
   print("Welcome to the Mood Match Movie Recommender!")
+  
   mood = input("Enter your current mood: ").strip()
+  if len(mood) == 0:
+    print("No mood entered. Quitting application")
+    return
   audience = input("Who are you watching with? (e.g., alone, partner, friends, family): ").strip()
+  if len(audience) == 0:
+    print("No audience entered. Quitting application")
+    return
   popular_movies = get_movies()
-  # print(popular_movies)
   db = setup_database(popular_movies)
-  # print(db)
 
   ai_rec(mood, audience, db)
-
 
 if __name__ == "__main__":
   main()
