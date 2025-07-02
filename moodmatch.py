@@ -41,14 +41,12 @@ def setup_database(movies):
 
   inspector = inspect(engine)
   if table_name in inspector.get_table_names():
-    print(f"Table '{table_name}' already exists. Checking for new movies to append...")
     with engine.connect() as connection:
       existing_titles = pd.read_sql(f"SELECT original_title FROM {table_name}", connection)['original_title'].tolist()
 
     movies_to_add_df = df[~df['original_title'].isin(existing_titles)]
 
     if not movies_to_add_df.empty:
-      print(f"Adding {len(movies_to_add_df)} new movies to the database.")
       movies_to_add_df.to_sql(
         table_name,
         con=engine,
@@ -111,7 +109,7 @@ def ai_rec(mood, audience, db):
   print(response.text)
 
 def main():
-  print("Welcome to the Mood Match Movie Recommender!")
+  print("Welcome to MoodFlix!")
   
   mood = input("Enter your current mood: ").strip()
   if len(mood) == 0:
