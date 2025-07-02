@@ -25,6 +25,8 @@ def get_movies():
     response = requests.get(tmdb_url, params)
     all_movies.extend(response.json()['results'])
 
+
+
   return all_movies
 
 def setup_database(movies):
@@ -40,7 +42,7 @@ def setup_database(movies):
     index=False,
     dtype={
         'original_title': VARCHAR(100),
-        'overview': VARCHAR(1000),   chars
+        'overview': VARCHAR(1000),
         'vote_average': db.Float
     }
   )
