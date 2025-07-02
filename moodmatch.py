@@ -6,11 +6,12 @@ from google.genai import types
 import sqlalchemy as db
 from sqlalchemy.types import VARCHAR, Float
 import pandas as pd
+from sqlalchemy import inspect
 
 my_api_key = os.getenv('GENAI_KEY')
 movie_api = os.getenv('MOVIE_REC')
 
-DB_NAME = "movie_recommendations.db"
+DB_FILE_NAME = "movie_recommendations.db"
 
 def get_movies():
   max_pages = 5
@@ -23,32 +24,57 @@ def get_movies():
       "api_key" : movie_api
     }
     response = requests.get(tmdb_url, params)
+    response.raise_for_status()
     all_movies.extend(response.json()['results'])
-
-
 
   return all_movies
 
+def get_db_engine():
+    return db.create_engine(f'sqlite:///{DB_FILE_NAME}')
+
 def setup_database(movies):
 
+  engine = get_db_engine()
   df = pd.DataFrame(movies)
   df = df[['original_title', 'overview', 'vote_average']]
-  engine = db.create_engine('sqlite:///movie_database.db')
+  table_name = 'movies'
 
-  df.to_sql(
-    'movies',
-    con=engine,
-    if_exists='replace',
-    index=False,
-    dtype={
-        'original_title': VARCHAR(100),
-        'overview': VARCHAR(1000),
-        'vote_average': db.Float
-    }
-  )
+  inspector = inspect(engine)
+  if table_name in inspector.get_table_names():
+    print(f"Table '{table_name}' already exists. Checking for new movies to append...")
+    with engine.connect() as connection:
+      existing_titles = pd.read_sql(f"SELECT original_title FROM {table_name}", connection)['original_title'].tolist()
+
+    movies_to_add_df = df[~df['original_title'].isin(existing_titles)]
+
+    if not movies_to_add_df.empty:
+      print(f"Adding {len(movies_to_add_df)} new movies to the database.")
+      movies_to_add_df.to_sql(
+        table_name,
+        con=engine,
+        if_exists='append', # Append new data
+        index=False,
+        dtype={
+          'original_title': VARCHAR(100),
+          'overview': VARCHAR(1000),
+          'vote_average': db.Float
+        }
+      )
+  else:
+    df.to_sql(
+      table_name,
+      con=engine,
+      if_exists='replace', # Use 'replace' only for the very first creation if table doesn't exist
+      index=False,
+      dtype={
+          'original_title': VARCHAR(100),
+          'overview': VARCHAR(1000),
+          'vote_average': db.Float
+      }
+    )
 
   with engine.connect() as connection:
-    query_result = connection.execute(db.text("SELECT * FROM movies;")).fetchall()
+    query_result = connection.execute(db.text(f"SELECT * FROM {table_name};")).fetchall()
     df_result = pd.DataFrame(query_result)
     pd.set_option('display.max_colwidth', None) 
 
@@ -63,14 +89,24 @@ def ai_rec(mood, audience, db):
     api_key=my_api_key,
   )
 
-  prompt = f"User is feeling this {mood} and they are watching a movie with {audience}. Based on the following comma-separated list of movies (title, overview, rating): {db}, please print the title of the movie and its full overview in the following format (without asterisks): Title: Overview: " 
-  # Specify the model to use and the messages to send
+  prompt =  "You are a movie recommendation AI. You will receive a user's mood, their audience, "
+  "and a list of movies (title, overview, rating). Your task is to recommend movies "
+  "from the provided list that align with the user's preferences."
+
+  query = f"The user is feeling '{mood}' and they are watching a movie with '{audience}'.\n"
+  "Based on the following comma-separated list of movies (title, overview, rating):\n"
+  f"{db}\n\n" # Pass the CSV content here
+  "Please provide the top 3 movie recommendations. For each recommendation, "
+  "print the movie title and its full overview in the following format (without asterisks or extra formatting beyond what's specified): \n"
+  "Title: [Movie Title]\n"
+  "Overview: [Movie Overview]\n\n"
+
   response = client.models.generate_content(
     model="gemini-2.5-flash",
     config=types.GenerateContentConfig(
       system_instruction = prompt
     ),
-    contents="Provide the top 3 movies that align with the user's mood and audience",
+    contents= query
   )
   print(response.text)
 
@@ -85,6 +121,7 @@ def main():
   if len(audience) == 0:
     print("No audience entered. Quitting application")
     return
+  print("\n")
   popular_movies = get_movies()
   db = setup_database(popular_movies)
 
